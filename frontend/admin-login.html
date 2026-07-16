@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Access | Admin</title>
+    <link href="vendor/fontawesome/all.min.css" rel="stylesheet">
+    <link href="vendor/plusjakarta/plusjakarta.css" rel="stylesheet">
+    <script src="js/config.js"></script>
+    <style>
+        :root {
+            --bg-main: #06080F;
+            --panel-bg: rgba(16, 20, 31, 0.7);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --neon-blue: #00e5ff;
+            --text-main: #ffffff;
+            --text-muted: #8b95a5;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: var(--bg-main); display: flex; justify-content: center; align-items: center; height: 100vh; color: var(--text-main); }
+        
+        .login-card {
+            background: var(--panel-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 50px 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .login-icon { font-size: 3rem; color: var(--neon-blue); margin-bottom: 20px; }
+        h2 { font-weight: 800; margin-bottom: 5px; }
+        p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 30px; }
+
+        .input-group { position: relative; margin-bottom: 20px; }
+        .input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .input-group input {
+            width: 100%; padding: 15px 15px 15px 45px;
+            background: rgba(0,0,0,0.4); border: 1px solid var(--panel-border);
+            border-radius: 8px; color: white; font-size: 1rem; transition: 0.3s;
+        }
+        .input-group input:focus { outline: none; border-color: var(--neon-blue); }
+
+        .btn {
+            width: 100%; padding: 15px; background: var(--neon-blue); color: #000;
+            border: none; border-radius: 8px; font-weight: 800; font-size: 1rem;
+            cursor: pointer; transition: 0.3s; margin-top: 10px;
+        }
+        .btn:hover { box-shadow: 0 0 20px rgba(0, 229, 255, 0.4); transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <i class="fa-solid fa-fingerprint login-icon"></i>
+        <h2>Admin Access</h2>
+        <p>Restricted area. Please identify yourself.</p>
+
+       <div id="error-msg" style="color: #ff4444; font-size: 0.85rem; margin-bottom: 15px; display: none; font-weight: 600;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Access Denied. Invalid Credentials.
+        </div>
+
+        <form id="admin-login-form">
+            <div class="input-group">
+                <i class="fa-solid fa-user"></i>
+                <input type="text" id="username" placeholder="Username" required autocomplete="off">
+            </div>
+            <div class="input-group">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn" id="login-btn">Authenticate</button>
+        </form>
+    </div>
+
+    <script>
+        // Already have a valid session? Skip straight to the dashboard.
+        if (sessionStorage.getItem('LouisAdminToken')) {
+            window.location.replace('admin.html');
+        }
+
+        const loginForm = document.getElementById('admin-login-form');
+        const errorMsg = document.getElementById('error-msg');
+        const loginBtn = document.getElementById('login-btn');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const enteredUser = usernameInput.value.trim();
+            const enteredPass = passwordInput.value;
+
+            loginBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...';
+            loginBtn.style.background = '#00e5ff';
+            loginBtn.style.color = '#000';
+
+            try {
+                // Send credentials to the backend (username-only login, no email/signup exists)
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: enteredUser, password: enteredPass })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.token) {
+                    // 1. Success! Store the secure VIP pass
+                    sessionStorage.setItem('LouisAdminToken', data.token);
+                    sessionStorage.setItem('LouisAdminUsername', data.admin?.username || enteredUser);
+
+                    errorMsg.style.display = 'none';
+                    usernameInput.style.borderColor = 'var(--panel-border)';
+                    passwordInput.style.borderColor = 'var(--panel-border)';
+
+                    // 2. Redirect to the dashboard
+                    setTimeout(() => {
+                        window.location.href = 'admin.html';
+                    }, 800);
+
+                } else {
+                    throw new Error(data.message || "Invalid Credentials");
+                }
+            } catch (error) {
+                // Failed Attempt! Show errors
+                errorMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${error.message === 'Failed to fetch' ? 'Cannot reach server. Is the backend running?' : error.message}`;
+                errorMsg.style.display = 'block';
+                usernameInput.style.borderColor = '#ff4444';
+                passwordInput.style.borderColor = '#ff4444';
+                
+                loginBtn.innerHTML = 'Authenticate';
+                loginBtn.style.background = 'var(--neon-blue)';
+                
+                // Quick shake animation
+                loginForm.style.transform = 'translateX(10px)';
+                setTimeout(() => loginForm.style.transform = 'translateX(-10px)', 50);
+                setTimeout(() => loginForm.style.transform = 'translateX(0)', 100);
+            }
+        });
+    </script>
+</body>
+</html>

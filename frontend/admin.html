@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Louis Peter Bangura</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link href="vendor/fontawesome/all.min.css" rel="stylesheet">
+    <link href="vendor/plusjakarta/plusjakarta.css" rel="stylesheet">
+    <script src="js/config.js"></script>
+   <script>
+const adminToken = sessionStorage.getItem('LouisAdminToken');
+
+if (!adminToken) {
+    window.location.replace('admin-login.html');
+}
+</script>
+    <style>
+        :root {
+            --bg-dark: #0a0c10;
+            --panel-bg: #11151c;
+            --panel-bg-2: #151a22;
+            --border: #222730;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --accent: #00e5ff;
+            --accent-dim: rgba(0, 229, 255, 0.1);
+            --success: #2ea043;
+            --danger: #ff4444;
+            --warning: #f0b400;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: var(--bg-dark); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+        button { font-family: inherit; }
+        a { color: inherit; }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 264px;
+            flex-shrink: 0;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .sidebar-brand {
+            display: flex; align-items: center; gap: 10px; padding: 0 8px 20px 8px;
+            margin-bottom: 16px; border-bottom: 1px solid var(--border);
+        }
+        .sidebar-brand .logo-badge {
+            width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), #007BFF);
+            display: flex; align-items: center; justify-content: center; color: #000; font-weight: 800; font-size: 0.85rem;
+        }
+        .sidebar-brand span { font-weight: 800; letter-spacing: 0.06em; font-size: 0.85rem; color: var(--text-muted); }
+        .sidebar-brand strong { color: var(--accent); }
+
+        .nav-menu { list-style: none; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .nav-menu li a, .nav-menu li button.nav-link {
+            color: var(--text-muted); text-decoration: none; padding: 11px 14px; border-radius: 8px;
+            display: flex; align-items: center; gap: 13px; font-weight: 600; transition: 0.2s;
+            background: none; border: none; width: 100%; text-align: left; font-size: 0.92rem; cursor: pointer;
+        }
+        .nav-menu li a i, .nav-menu li button.nav-link i { width: 18px; text-align: center; }
+        .nav-menu li a:hover, .nav-menu li button.nav-link:hover { background: rgba(255,255,255,0.04); color: var(--text-main); }
+        .nav-menu li a.active { background: var(--accent-dim); color: var(--accent); }
+        .nav-menu li.nav-divider { height: 1px; background: var(--border); margin: 8px 4px; }
+        .nav-menu li.logout-item { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+        .nav-menu li.logout-item button:hover { background: rgba(255, 68, 68, 0.1); color: var(--danger); }
+        .nav-badge {
+            margin-left: auto; background: var(--danger); color: #fff; font-size: 0.7rem; font-weight: 800;
+            border-radius: 20px; padding: 1px 7px; min-width: 18px; text-align: center;
+        }
+
+        /* --- TOPBAR --- */
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 32px; border-bottom: 1px solid var(--border); background: var(--panel-bg);
+            flex-shrink: 0;
+        }
+        .topbar h1 { font-size: 1.1rem; font-weight: 800; }
+        .topbar-right { display: flex; align-items: center; gap: 18px; }
+        .topbar-date { color: var(--text-muted); font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
+        .profile-chip { display: flex; align-items: center; gap: 10px; cursor: pointer; position: relative; padding: 6px 8px; border-radius: 10px; }
+        .profile-chip:hover { background: rgba(255,255,255,0.04); }
+        .profile-chip img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); background: #000; }
+        .profile-chip .name { font-size: 0.88rem; font-weight: 700; }
+        .profile-chip .role { font-size: 0.72rem; color: var(--text-muted); }
+        .profile-dropdown {
+            display: none; position: absolute; top: 52px; right: 0; background: var(--panel-bg-2); border: 1px solid var(--border);
+            border-radius: 10px; min-width: 170px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); z-index: 50; overflow: hidden;
+        }
+        .profile-dropdown.open { display: block; }
+        .profile-dropdown button, .profile-dropdown a {
+            display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; background: none; border: none;
+            color: var(--text-main); text-align: left; font-size: 0.85rem; cursor: pointer; text-decoration: none;
+        }
+        .profile-dropdown button:hover, .profile-dropdown a:hover { background: rgba(255,255,255,0.05); }
+        .profile-dropdown .danger:hover { color: var(--danger); }
+
+        /* --- MAIN CONTENT --- */
+        .main-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .main-content { flex: 1; padding: 28px 32px 60px; overflow-y: auto; }
+        .header-top { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+        .header-top h2 { margin-bottom: 4px; font-size: 1.4rem; }
+        .header-top p { color: var(--text-muted); font-size: 0.88rem; }
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 24px; }
+        .stat-card {
+            background: var(--panel-bg); border: 1px solid var(--border); padding: 20px; border-radius: 14px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .stat-info h3 { color: var(--text-muted); font-size: 0.78rem; margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+        .stat-info h2 { font-size: 1.7rem; }
+        .stat-info .stat-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+        .stat-icon { width: 44px; height: 44px; border-radius: 11px; background: var(--accent-dim); display: flex; justify-content: center; align-items: center; color: var(--accent); font-size: 1.25rem; flex-shrink: 0; }
+
+        /* Dashboard two-column */
+        .dash-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; margin-bottom: 24px; }
+        @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .recent-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(34,39,48,0.5); }
+        .recent-item:last-child { border-bottom: none; }
+        .recent-item img { width: 42px; height: 42px; border-radius: 9px; object-fit: cover; background: #000; flex-shrink: 0; }
+        .recent-item .ri-title { font-size: 0.88rem; font-weight: 700; }
+        .recent-item .ri-sub { font-size: 0.75rem; color: var(--text-muted); }
+        .recent-item .ri-date { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+
+        .view-all-link { color: var(--accent); font-size: 0.82rem; font-weight: 700; text-decoration: none; display: block; text-align: center; margin-top: 12px; cursor: pointer; }
+
+        .chart-legend { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .chart-legend .total-views { font-size: 1.5rem; font-weight: 800; }
+        .chart-legend .total-views span { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; display: block; }
+
+        /* Quick actions */
+        .quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        @media (max-width: 900px) { .quick-actions { grid-template-columns: repeat(2, 1fr); } }
+        .qa-btn {
+            background: var(--panel-bg); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+            display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; color: var(--text-main);
+            font-weight: 700; font-size: 0.85rem; transition: 0.2s;
+        }
+        .qa-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+        .qa-btn i { font-size: 1.3rem; color: var(--accent); }
+
+        /* Data section */
+        .data-section { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 10px; flex-wrap: wrap; }
+        .section-header h3 { font-size: 1rem; }
+        .btn-add { background: var(--accent); color: #000; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+        .btn-add:hover { box-shadow: 0 0 15px rgba(0, 229, 255, 0.4); }
+        .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 9px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.82rem; }
+        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-ghost.on { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 13px; color: var(--text-muted); font-size: 0.82rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        td { padding: 13px; border-bottom: 1px solid rgba(34, 39, 48, 0.5); vertical-align: middle; font-size: 0.88rem; }
+        tr.unread td { background: rgba(0, 229, 255, 0.03); }
+        .badge { background: rgba(46, 160, 67, 0.15); color: var(--success); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+        .badge.muted { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+        .badge.new { background: rgba(0, 229, 255, 0.15); color: var(--accent); }
+        .proj-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: #000; }
+        .proj-title-cell { display: flex; align-items: center; gap: 12px; }
+        .tech-tag { display: inline-block; background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-muted); font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; margin: 2px 3px 2px 0; }
+
+        .action-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; margin-right: 8px; transition: 0.2s; font-size: 0.95rem; }
+        .action-btn:hover { color: var(--accent); }
+        .action-btn.delete:hover { color: var(--danger); }
+
+        .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+        .empty-state i { font-size: 2.2rem; margin-bottom: 14px; opacity: 0.4; }
+        .empty-state p { font-size: 0.9rem; }
+
+        /* Skills / Services grid cards */
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .mini-card { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+        .mini-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .mini-card-icon { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: #fff; flex-shrink: 0; }
+        .mini-card-title { font-weight: 700; font-size: 0.92rem; }
+        .mini-card-actions { margin-left: auto; display: flex; gap: 4px; }
+        .progress-track { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden; margin-top: 8px; }
+        .progress-fill { height: 100%; border-radius: 10px; }
+        .mini-card p { color: var(--text-muted); font-size: 0.8rem; line-height: 1.5; }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: var(--panel-bg); border: 1px solid var(--border); border-radius: 16px;
+            width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; padding: 30px;
+        }
+        .modal-box.wide { max-width: 720px; }
+        .modal-box h2 { margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; }
+        .form-group input[type="text"],
+        .form-group input[type="url"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group input[type="number"],
+        .form-group input[type="color"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%; padding: 12px 14px; background: rgba(0,0,0,0.4); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text-main); font-size: 0.95rem; font-family: inherit;
+        }
+        .form-group input[type="color"] { padding: 4px 6px; height: 44px; cursor: pointer; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+        .form-group textarea { resize: vertical; min-height: 70px; }
+        .form-group .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; }
+        .form-row { display: flex; gap: 15px; }
+        .form-row .form-group { flex: 1; }
+        .checkbox-row { display: flex; align-items: center; gap: 10px; }
+        .checkbox-row input { width: 18px; height: 18px; }
+        .range-row { display: flex; align-items: center; gap: 12px; }
+        .range-row input[type="range"] { flex: 1; }
+        .range-row .range-val { width: 46px; text-align: right; font-weight: 700; color: var(--accent); font-size: 0.9rem; }
+        .image-upload-box {
+            border: 1px dashed var(--border); border-radius: 10px; padding: 15px; display: flex;
+            align-items: center; gap: 15px; cursor: pointer; position: relative;
+        }
+        .image-upload-box img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; background: #000; }
+        .image-upload-box.round img, .image-upload-box.round { border-radius: 50%; }
+        .image-upload-box input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .image-upload-box .placeholder { color: var(--text-muted); font-size: 0.85rem; }
+        .modal-actions { display: flex; gap: 12px; margin-top: 25px; }
+        .btn-primary, .btn-secondary {
+            flex: 1; padding: 13px; border-radius: 8px; font-weight: 700; cursor: pointer; border: none; font-size: 0.95rem;
+        }
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .form-error { color: var(--danger); font-size: 0.85rem; margin-bottom: 12px; display: none; }
+
+        /* Timeline editor (About Me) */
+        .timeline-row { border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; position: relative; background: rgba(255,255,255,0.015); }
+        .timeline-row .remove-row { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--text-muted); cursor: pointer; }
+        .timeline-row .remove-row:hover { color: var(--danger); }
+
+        /* Message preview modal */
+        .msg-meta { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.82rem; margin-bottom: 14px; flex-wrap: wrap; gap: 6px; }
+        .msg-body { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; padding: 16px; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; margin-bottom: 18px; }
+
+        .toast {
+            position: fixed; bottom: 25px; right: 25px; background: var(--panel-bg); border: 1px solid var(--border);
+            border-left: 4px solid var(--success); padding: 15px 22px; border-radius: 10px; z-index: 200;
+            display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.show { display: block; }
+
+        .cv-box { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .cv-current { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; flex: 1; min-width: 260px; }
+        .cv-current .cv-icon { width: 46px; height: 46px; border-radius: 10px; background: rgba(255,68,68,0.12); color: #ff6b6b; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+        .cv-upload-box { flex: 1; min-width: 260px; border: 1px dashed var(--border); border-radius: 12px; padding: 24px; text-align: center; position: relative; cursor: pointer; }
+        .cv-upload-box input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .cv-upload-box i { font-size: 1.6rem; color: var(--accent); margin-bottom: 8px; display: block; }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="logo-badge">LP</div>
+            <span>ADMIN <strong>DASHBOARD</strong></span>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="#" class="nav-item active" data-view="dashboard-view"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
+            <li><a href="#" class="nav-item" data-view="projects-view"><i class="fa-solid fa-folder-open"></i> Projects</a></li>
+            <li><a href="#" class="nav-item" data-view="messages-view"><i class="fa-solid fa-envelope"></i> Messages <span class="nav-badge" id="messages-nav-badge" style="display:none;">0</span></a></li>
+            <li><a href="#" class="nav-item" data-view="skills-view"><i class="fa-solid fa-layer-group"></i> Skills</a></li>
+            <li><a href="#" class="nav-item" data-view="services-view"><i class="fa-solid fa-briefcase"></i> Services</a></li>
+            <li><a href="#" class="nav-item" data-view="about-view"><i class="fa-solid fa-user-pen"></i> About Me</a></li>
+            <li><a href="#" class="nav-item" data-view="cv-view"><i class="fa-solid fa-file-arrow-up"></i> CV / Resume</a></li>
+            <li class="nav-divider"></li>
+            <li><a href="#" class="nav-item" data-view="profile-view"><i class="fa-solid fa-id-badge"></i> Profile</a></li>
+            <li><a href="#" class="nav-item" data-view="settings-view"><i class="fa-solid fa-gear"></i> Settings</a></li>
+            <li class="logout-item"><button class="nav-link" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></li>
+        </ul>
+    </aside>
+
+    <div class="main-wrap">
+        <div class="topbar">
+            <h1 id="topbar-title">Dashboard Overview</h1>
+            <div class="topbar-right">
+                <div class="topbar-date"><i class="fa-regular fa-calendar"></i> <span id="current-date"></span></div>
+                <div class="profile-chip" id="profile-chip">
+                    <img id="topbar-avatar" src="images/profile.png" alt="Admin">
+                    <div>
+                        <div class="name" id="topbar-name">Louis Peter Bangura</div>
+                        <div class="role" id="topbar-role">System Admin</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-down" style="font-size:0.7rem; color:var(--text-muted);"></i>
+                    <div class="profile-dropdown" id="profile-dropdown">
+                        <button data-view="profile-view" class="nav-item"><i class="fa-solid fa-id-badge"></i> Profile</button>
+                        <button data-view="settings-view" class="nav-item"><i class="fa-solid fa-gear"></i> Settings</button>
+                        <button class="danger" id="dropdown-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <main class="main-content">
+
+        <!-- DASHBOARD VIEW -->
+        <div class="view active" id="dashboard-view">
+            <div class="header-top">
+                <div>
+                    <h2>Dashboard Overview</h2>
+                    <p>Welcome back. Here's what's happening with your portfolio.</p>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-info"><h3>Projects</h3><h2 id="stat-projects">—</h2><div class="stat-sub">Total Projects</div></div>
+                    <div class="stat-icon"><i class="fa-solid fa-laptop-code"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><h3>Messages</h3><h2 id="stat-messages">—</h2><div class="stat-sub">Total Messages</div></div>
+                    <div class="stat-icon"><i class="fa-solid fa-envelope"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><h3>Skills</h3><h2 id="stat-skills">—</h2><div class="stat-sub">Total Skills</div></div>
+                    <div class="stat-icon"><i class="fa-solid fa-layer-group"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info"><h3>Views</h3><h2 id="stat-views">—</h2><div class="stat-sub">Total Views</div></div>
+                    <div class="stat-icon"><i class="fa-solid fa-eye"></i></div>
+                </div>
+            </div>
+
+            <div class="dash-grid">
+                <div class="data-section">
+                    <div class="section-header">
+                        <h3>Recent Projects</h3>
+                    </div>
+                    <div id="recent-projects-list">
+                        <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>Loading…</p></div>
+                    </div>
+                    <span class="view-all-link" id="view-all-projects">View All Projects</span>
+                </div>
+
+                <div class="data-section">
+                    <div class="chart-legend">
+                        <div>
+                            <h3 style="margin-bottom:2px;">Website Analytics</h3>
+                            <p style="color:var(--text-muted); font-size:0.78rem;">Last 30 days</p>
+                        </div>
+                        <div class="total-views"><span>Total</span><span id="chart-total-views" style="font-size:1.5rem; color:var(--text-main);">—</span></div>
+                    </div>
+                    <div id="analytics-chart-wrap"></div>
+                </div>
+            </div>
+
+            <div class="data-section">
+                <div class="section-header"><h3>Quick Actions</h3></div>
+                <div class="quick-actions">
+                    <button class="qa-btn" id="qa-add-project"><i class="fa-solid fa-circle-plus"></i> Add Project</button>
+                    <button class="qa-btn" id="qa-manage-skills"><i class="fa-solid fa-layer-group"></i> Manage Skills</button>
+                    <button class="qa-btn" id="qa-update-about"><i class="fa-solid fa-user-pen"></i> Update About</button>
+                    <button class="qa-btn" id="qa-upload-cv"><i class="fa-solid fa-file-arrow-up"></i> Upload CV</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROJECTS VIEW -->
+        <div class="view" id="projects-view">
+            <div class="header-top">
+                <div>
+                    <h2>Manage Projects</h2>
+                    <p>Create, edit, and remove portfolio projects.</p>
+                </div>
+                <button class="btn-add" id="open-add-modal"><i class="fa-solid fa-plus"></i> Add Project</button>
+            </div>
+
+            <div class="data-section">
+                <div id="projects-table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Project</th>
+                                <th>Technologies</th>
+                                <th>Links</th>
+                                <th>Featured</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projects-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="empty-state" id="projects-empty" style="display:none;">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <p>No projects yet. Click "Add Project" to create your first one.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MESSAGES VIEW -->
+        <div class="view" id="messages-view">
+            <div class="header-top">
+                <div>
+                    <h2>Messages</h2>
+                    <p>Submissions from your portfolio's contact form.</p>
+                </div>
+                <button class="btn-ghost" id="toggle-unread-filter"><i class="fa-solid fa-filter"></i> Unread only</button>
+            </div>
+
+            <div class="data-section">
+                <div id="messages-table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>From</th>
+                                <th>Message</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="messages-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="empty-state" id="messages-empty" style="display:none;">
+                    <i class="fa-solid fa-envelope-open-text"></i>
+                    <p>No messages yet.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SKILLS VIEW -->
+        <div class="view" id="skills-view">
+            <div class="header-top">
+                <div>
+                    <h2>Skills</h2>
+                    <p>Manage the skills shown on your public site.</p>
+                </div>
+                <button class="btn-add" id="open-add-skill"><i class="fa-solid fa-plus"></i> Add Skill</button>
+            </div>
+            <div class="data-section">
+                <div class="cards-grid" id="skills-cards"></div>
+                <div class="empty-state" id="skills-empty" style="display:none;">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <p>No skills yet. Click "Add Skill" to create your first one.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SERVICES VIEW -->
+        <div class="view" id="services-view">
+            <div class="header-top">
+                <div>
+                    <h2>Services</h2>
+                    <p>Manage the services listed on your public site.</p>
+                </div>
+                <button class="btn-add" id="open-add-service"><i class="fa-solid fa-plus"></i> Add Service</button>
+            </div>
+            <div class="data-section">
+                <div class="cards-grid" id="services-cards"></div>
+                <div class="empty-state" id="services-empty" style="display:none;">
+                    <i class="fa-solid fa-briefcase"></i>
+                    <p>No services yet. Click "Add Service" to create your first one.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABOUT ME VIEW -->
+        <div class="view" id="about-view">
+            <div class="header-top">
+                <div>
+                    <h2>About Me</h2>
+                    <p>Edit the bio, stats, and timeline shown on your public site.</p>
+                </div>
+            </div>
+
+            <div class="data-section" style="margin-bottom:18px;">
+                <div class="form-error" id="about-error"></div>
+                <form id="about-form">
+                    <div class="form-group">
+                        <label>Tagline</label>
+                        <input type="text" id="about-tagline" placeholder="Web Developer & Graphic Designer">
+                    </div>
+                    <div class="form-group">
+                        <label>Bio</label>
+                        <textarea id="about-bio" rows="3"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Location</label>
+                            <input type="text" id="about-location">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Happy Clients</label>
+                            <input type="number" id="about-happy-clients" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Certificates</label>
+                            <input type="number" id="about-certificates" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Years of Learning</label>
+                            <input type="number" id="about-years-learning" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>GitHub URL</label>
+                            <input type="url" id="about-social-github" placeholder="https://github.com/...">
+                        </div>
+                        <div class="form-group">
+                            <label>LinkedIn URL</label>
+                            <input type="url" id="about-social-linkedin" placeholder="https://linkedin.com/in/...">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Twitter / X URL</label>
+                            <input type="url" id="about-social-twitter" placeholder="https://x.com/...">
+                        </div>
+                        <div class="form-group">
+                            <label>Instagram URL</label>
+                            <input type="url" id="about-social-instagram" placeholder="https://instagram.com/...">
+                        </div>
+                    </div>
+
+                    <div class="section-header" style="margin-top:8px;">
+                        <h3>Timeline</h3>
+                        <button type="button" class="btn-ghost" id="add-timeline-row"><i class="fa-solid fa-plus"></i> Add Entry</button>
+                    </div>
+                    <div id="timeline-rows"></div>
+
+                    <button type="submit" class="btn-primary" id="save-about-btn" style="width:100%; margin-top:10px;">Save Changes</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- CV / RESUME VIEW -->
+        <div class="view" id="cv-view">
+            <div class="header-top">
+                <div>
+                    <h2>CV / Resume</h2>
+                    <p>Upload the PDF that visitors download from your homepage.</p>
+                </div>
+            </div>
+            <div class="data-section">
+                <div class="cv-box">
+                    <div class="cv-current">
+                        <div class="cv-icon"><i class="fa-solid fa-file-pdf"></i></div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:700; font-size:0.92rem;" id="cv-current-label">No CV uploaded yet</div>
+                            <div style="font-size:0.78rem; color:var(--text-muted);" id="cv-current-sub">Upload a PDF to enable the "Download CV" button on your site.</div>
+                        </div>
+                        <a href="#" target="_blank" id="cv-current-link" class="btn-ghost" style="display:none; text-decoration:none;"><i class="fa-solid fa-eye"></i> View</a>
+                    </div>
+                    <label class="cv-upload-box" id="cv-upload-box">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <div style="font-weight:700; font-size:0.88rem;" id="cv-upload-label">Click to upload PDF</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Max 10MB, PDF only</div>
+                        <input type="file" id="cv-file-input" accept="application/pdf">
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROFILE VIEW -->
+        <div class="view" id="profile-view">
+            <div class="header-top">
+                <div>
+                    <h2>Profile</h2>
+                    <p>This is how you appear inside the admin dashboard.</p>
+                </div>
+            </div>
+            <div class="data-section" style="max-width:480px;">
+                <div class="form-error" id="profile-error"></div>
+                <div class="form-group">
+                    <label>Avatar</label>
+                    <label class="image-upload-box round">
+                        <img id="profile-avatar-preview" src="images/profile.png" alt="">
+                        <span class="placeholder" id="profile-avatar-placeholder" style="display:none;"><i class="fa-solid fa-image"></i> Click to upload</span>
+                        <input type="file" id="profile-avatar-input" accept="image/*">
+                    </label>
+                </div>
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" id="profile-display-name">
+                    </div>
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" id="profile-title" placeholder="System Admin">
+                    </div>
+                    <button type="submit" class="btn-primary" id="save-profile-btn" style="width:100%;">Save Profile</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- SETTINGS VIEW -->
+        <div class="view" id="settings-view">
+            <div class="header-top">
+                <div>
+                    <h2>Account Settings</h2>
+                    <p>Change your admin username and/or password.</p>
+                </div>
+            </div>
+
+            <div class="data-section" style="max-width: 480px;">
+                <div class="form-error" id="settings-error"></div>
+                <div class="form-error" id="settings-success" style="display:none; color: var(--success);"></div>
+
+                <form id="settings-form">
+                    <div class="form-group">
+                        <label>Current Password</label>
+                        <input type="password" id="current-password" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>New Username <span style="font-weight:400; color: var(--text-muted);">(leave blank to keep current)</span></label>
+                        <input type="text" id="new-username">
+                    </div>
+
+                    <div class="form-group">
+                        <label>New Password <span style="font-weight:400; color: var(--text-muted);">(leave blank to keep current, min 6 characters)</span></label>
+                        <input type="password" id="new-password">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <input type="password" id="confirm-password">
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="save-settings-btn" style="width:100%;">Update Credentials</button>
+                </form>
+            </div>
+        </div>
+
+        </main>
+    </div>
+
+    <!-- ADD / EDIT PROJECT MODAL -->
+    <div class="modal-overlay" id="project-modal">
+        <div class="modal-box">
+            <h2 id="modal-title">Add Project</h2>
+            <div class="form-error" id="form-error"></div>
+            <form id="project-form">
+                <input type="hidden" id="project-id">
+
+                <div class="form-group">
+                    <label>Cover Image</label>
+                    <label class="image-upload-box">
+                        <img id="image-preview" src="" alt="" style="display:none;">
+                        <span class="placeholder" id="image-placeholder"><i class="fa-solid fa-image"></i> Click to upload an image</span>
+                        <input type="file" id="project-image" accept="image/*">
+                    </label>
+                    <input type="hidden" id="project-image-url">
+                </div>
+
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="project-title-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="project-description" required></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>GitHub URL (optional)</label>
+                        <input type="url" id="project-github" placeholder="https://github.com/...">
+                    </div>
+                    <div class="form-group">
+                        <label>Live Demo URL (optional)</label>
+                        <input type="url" id="project-demo" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="project-category">
+                        <option value="Web Development">Web Development</option>
+                        <option value="Graphic Design">Graphic Design</option>
+                        <option value="UI/UX Design">UI/UX Design</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Sub-category (optional)</label>
+                    <input type="text" id="project-subcategory" placeholder="e.g. Logo Design, Flyer & Poster">
+                    <small style="color:var(--text-muted); display:block; margin-top:4px;">
+                        Groups projects together on the live site — e.g. everything tagged "Logo Design" shows up
+                        in one gallery when a visitor clicks into it. Leave blank to just group by Category.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label>Technologies (comma separated)</label>
+                    <input type="text" id="project-technologies" placeholder="React, Node.js, MongoDB">
+                </div>
+
+                <div class="form-group checkbox-row">
+                    <input type="checkbox" id="project-featured">
+                    <label style="margin-bottom:0;" for="project-featured">Feature this project on the homepage</label>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancel-modal">Cancel</button>
+                    <button type="submit" class="btn-primary" id="save-project-btn">Save Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SKILL MODAL -->
+    <div class="modal-overlay" id="skill-modal">
+        <div class="modal-box">
+            <h2 id="skill-modal-title">Add Skill</h2>
+            <div class="form-error" id="skill-form-error"></div>
+            <form id="skill-form">
+                <input type="hidden" id="skill-id">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="skill-name" placeholder="e.g. React" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Icon class <span style="font-weight:400; color:var(--text-muted);">(optional, Font Awesome)</span></label>
+                        <input type="text" id="skill-icon" placeholder="fa-brands fa-react">
+                    </div>
+                    <div class="form-group" style="max-width:110px;">
+                        <label>Color</label>
+                        <input type="color" id="skill-color" value="#00e5ff">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Proficiency</label>
+                    <div class="range-row">
+                        <input type="range" id="skill-percent" min="0" max="100" value="80">
+                        <span class="range-val" id="skill-percent-val">80%</span>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancel-skill-modal">Cancel</button>
+                    <button type="submit" class="btn-primary" id="save-skill-btn">Save Skill</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SERVICE MODAL -->
+    <div class="modal-overlay" id="service-modal">
+        <div class="modal-box">
+            <h2 id="service-modal-title">Add Service</h2>
+            <div class="form-error" id="service-form-error"></div>
+            <form id="service-form">
+                <input type="hidden" id="service-id">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="service-title" placeholder="e.g. Web Development" required>
+                </div>
+                <div class="form-group">
+                    <label>Icon class <span style="font-weight:400; color:var(--text-muted);">(Font Awesome)</span></label>
+                    <input type="text" id="service-icon" placeholder="fa-solid fa-code">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="service-description" required></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancel-service-modal">Cancel</button>
+                    <button type="submit" class="btn-primary" id="save-service-btn">Save Service</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MESSAGE VIEW MODAL -->
+    <div class="modal-overlay" id="message-modal">
+        <div class="modal-box">
+            <h2>Message</h2>
+            <div class="msg-meta">
+                <span id="msg-modal-from"></span>
+                <span id="msg-modal-date"></span>
+            </div>
+            <div class="msg-body" id="msg-modal-body"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="close-message-modal">Close</button>
+                <button type="button" class="btn-primary" id="msg-modal-delete" style="background:var(--danger); color:#fff;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', dateOptions);
+    </script>
+    <script src="js/admin.js"></script>
+</body>
+</html>

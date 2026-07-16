@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Louis Peter Bangura - Portfolio</title>
+
+    <!-- Everything below is self-hosted (no CDN) so this works fully offline, e.g. in Acode's preview -->
+    <link rel="stylesheet" href="vendor/poppins/poppins.css">
+    <link rel="stylesheet" href="vendor/fontawesome/all.min.css">
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <link rel="stylesheet" href="output.css">
+
+    <!-- Shared API base URL, same file the admin dashboard uses -->
+    <script src="js/config.js"></script>
+    <style>
+        body { background-color: #080C14; color: white; }
+        .text-gradient {
+            background: linear-gradient(90deg, #007BFF, #00F0FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .glow-circle { box-shadow: 0 0 60px rgba(0, 123, 255, 0.4); }
+        .card-hover:hover { border-color: #007BFF; transform: translateY(-2px); }
+        .image-fade {
+            -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
+        }
+        .filter-btn.active { background-color: #007BFF; color: white; border-color: #007BFF; }
+
+        /* --- Flip card (used on the About section ID card) --- */
+        .flip-card { perspective: 1000px; height: 26rem; }
+        .flip-card-inner {
+            position: relative; width: 100%; height: 100%;
+            transition: transform 0.7s; transform-style: preserve-3d;
+        }
+        .flip-card:hover .flip-card-inner { transform: rotateY(180deg); }
+        .flip-card-front, .flip-card-back {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 0.75rem; overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .flip-card-back { transform: rotateY(180deg); }
+
+        /* --- Reusable hover-lift + glow, drop this class on any card --- */
+        .hover-glow { transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; }
+        .hover-glow:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 10px 30px rgba(0, 123, 255, 0.25);
+            border-color: #00F0FF;
+        }
+        .toast {
+            position: fixed; bottom: 25px; right: 25px; background: #0D1321; border: 1px solid #1F2937;
+            border-left: 4px solid #22c55e; padding: 15px 22px; border-radius: 10px; z-index: 200;
+            display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.4); font-size: 0.9rem;
+        }
+        .toast.error { border-left-color: #ef4444; }
+        .toast.show { display: block; }
+
+        /* --- Page load fade-in --- */
+        body { opacity: 0; }
+        body.page-ready { animation: pageFadeIn 0.6s ease forwards; }
+        @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .page-exit { animation: pageFadeOut 0.35s ease forwards; }
+        @keyframes pageFadeOut { to { opacity: 0; } }
+
+        /* --- Glassmorphism navbar --- */
+        .glass-nav {
+            background: rgba(13, 19, 33, 0.55);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        /* --- Button hover: lift + light sweep --- */
+        .btn-hover { position: relative; overflow: hidden; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .btn-hover:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 123, 255, 0.35); }
+        .btn-hover::after {
+            content: ''; position: absolute; top: 0; left: -75%; width: 50%; height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255,255,255,0.25), transparent);
+            transform: skewX(-20deg); transition: left 0.6s ease; pointer-events: none;
+        }
+        .btn-hover:hover::after { left: 125%; }
+
+        /* --- Floating idle animation (drop on any wrapper) --- */
+        @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .float-card { animation: floaty 5s ease-in-out infinite; }
+
+        /* --- Drifting background blobs --- */
+        .bg-blob { position: absolute; border-radius: 9999px; filter: blur(90px); pointer-events: none; z-index: 0; opacity: 0.35; animation: blobMove 18s ease-in-out infinite; }
+        @keyframes blobMove {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(40px, -30px) scale(1.15); }
+            66% { transform: translate(-30px, 25px) scale(0.9); }
+        }
+
+        /* --- Cursor glow that follows the mouse --- */
+        #cursor-glow {
+            position: fixed; top: 0; left: 0; width: 500px; height: 500px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,123,255,0.18), rgba(0,240,255,0.06) 40%, transparent 70%);
+            pointer-events: none; z-index: 1; transform: translate(-50%, -50%); opacity: 0; transition: opacity 0.4s ease;
+        }
+        #cursor-glow.active { opacity: 1; }
+
+        /* --- Scroll reveal --- */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.7s ease, transform 0.7s ease; }
+        .reveal.in-view { opacity: 1; transform: translateY(0); }
+
+        /* --- Location map card ---
+           Flat, straight card (no tilt) that holds a real Leaflet map
+           using dark-themed tiles, so the map itself is genuinely dark
+           and geographically accurate instead of a filtered light map. */
+        .location-map-card {
+            position: relative;
+            border-radius: 0.9rem;
+            overflow: hidden;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            box-shadow:
+                0 0 0 1px rgba(0, 123, 255, 0.15),
+                0 20px 40px -20px rgba(0, 0, 0, 0.7),
+                0 0 40px -14px rgba(0, 123, 255, 0.4);
+            transition: box-shadow 0.35s ease, border-color 0.35s ease;
+        }
+        .location-map-card:hover {
+            border-color: rgba(0, 240, 255, 0.55);
+            box-shadow:
+                0 0 0 1px rgba(0, 240, 255, 0.25),
+                0 24px 46px -20px rgba(0, 0, 0, 0.75),
+                0 0 55px -10px rgba(0, 240, 255, 0.5);
+        }
+        #location-map { height: 14rem; width: 100%; background: #0D1321; }
+        /* Leaflet's own UI chrome (zoom buttons, attribution) restyled to fit the dark theme */
+        .leaflet-control-zoom a {
+            background: #0D1321 !important;
+            color: #00F0FF !important;
+            border-color: rgba(0, 240, 255, 0.25) !important;
+        }
+        .leaflet-control-zoom a:hover { background: #131c30 !important; }
+        .leaflet-control-attribution {
+            background: rgba(8, 12, 20, 0.75) !important;
+            color: #8b93a3 !important;
+        }
+        .leaflet-control-attribution a { color: #00F0FF !important; }
+        .map-pin {
+            font-size: 1.5rem; color: #00F0FF;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.9), 0 0 20px rgba(0, 123, 255, 0.7);
+            animation: pinPulse 2.4s ease-in-out infinite;
+        }
+        @keyframes pinPulse {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        /* --- Project group cards (the "View Project" grid) --- */
+        .group-count-badge {
+            position: absolute; top: 0.6rem; right: 0.6rem;
+            background: rgba(8, 12, 20, 0.75); border: 1px solid rgba(0, 240, 255, 0.35);
+            color: #00F0FF; font-size: 0.7rem; font-weight: 600;
+            padding: 0.15rem 0.55rem; border-radius: 999px; backdrop-filter: blur(4px);
+        }
+
+        /* --- Gallery modal (shows every project inside a group) --- */
+        .gallery-overlay {
+            position: fixed; inset: 0; z-index: 300;
+            background: rgba(5, 7, 12, 0.82); backdrop-filter: blur(6px);
+            display: none; align-items: flex-start; justify-content: center;
+            padding: 4vh 1rem; overflow-y: auto;
+        }
+        .gallery-overlay.open { display: flex; }
+        .gallery-panel {
+            background: #0D1321; border: 1px solid #1F2937; border-radius: 1rem;
+            width: 100%; max-width: 72rem; padding: 1.5rem;
+            box-shadow: 0 0 60px -12px rgba(0, 123, 255, 0.35);
+            animation: galleryIn 0.25s ease;
+        }
+        @keyframes galleryIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .gallery-close {
+            width: 2.25rem; height: 2.25rem; border-radius: 999px; border: 1px solid #1F2937;
+            display: flex; align-items: center; justify-content: center; color: #8b93a3;
+            transition: 0.2s ease; flex-shrink: 0;
+        }
+        .gallery-close:hover { color: #00F0FF; border-color: rgba(0, 240, 255, 0.4); }
+        .gallery-item-img { cursor: zoom-in; }
+
+        /* --- Full-size image lightbox --- */
+        .lightbox-overlay {
+            position: fixed; inset: 0; z-index: 400;
+            background: rgba(2, 3, 6, 0.94);
+            display: none; align-items: center; justify-content: center; flex-direction: column;
+            padding: 2rem;
+        }
+        .lightbox-overlay.open { display: flex; }
+        .lightbox-overlay img { max-width: min(90vw, 60rem); max-height: 72vh; object-fit: contain; border-radius: 0.5rem; box-shadow: 0 0 60px -10px rgba(0, 240, 255, 0.3); }
+        .lightbox-nav {
+            position: fixed; top: 50%; transform: translateY(-50%);
+            width: 3rem; height: 3rem; border-radius: 999px; border: 1px solid rgba(0,240,255,0.3);
+            background: rgba(13, 19, 33, 0.7); color: #00F0FF; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s ease;
+        }
+        .lightbox-nav:hover { background: rgba(0, 240, 255, 0.15); }
+        .lightbox-close { position: fixed; top: 1.5rem; right: 1.75rem; }
+    </style>
+</head>
+<body class="antialiased selection:bg-primaryBlue selection:text-white">
+
+    <div id="cursor-glow"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full top-0 z-50 glass-nav">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center font-serif italic text-xl">lp</div>
+                <span class="text-xl font-semibold">Louis Peter <span class="text-cyanAccent">Bangura</span></span>
+            </div>
+            <div class="hidden md:flex space-x-8 text-sm font-medium">
+                <a href="#home" class="text-white border-b-2 border-primaryBlue pb-1">Home</a>
+                <a href="#about" class="text-gray-400 hover:text-white transition">About</a>
+                <a href="#skills" class="text-gray-400 hover:text-white transition">Skills</a>
+                <a href="#services" class="text-gray-400 hover:text-white transition">Services</a>
+                <a href="#projects" class="text-gray-400 hover:text-white transition">Projects</a>
+                <a href="#contact" class="text-gray-400 hover:text-white transition">Contact</a>
+            </div>
+            <!-- Admin now goes to the real, password-protected dashboard instead of scrolling to an in-page section -->
+            <a href="admin-login.html" id="admin-nav-link" class="hidden md:flex items-center gap-2 px-5 py-2 rounded-lg border border-primaryBlue text-primaryBlue hover:bg-primaryBlue/10 transition btn-hover">
+                <i class="fa-solid fa-lock"></i> Admin
+            </a>
+        </div>
+    </nav>
+
+    <!-- Home Section -->
+    <section id="home" class="relative overflow-hidden min-h-screen pt-32 pb-16 border-b border-cardBorder">
+        <div class="bg-blob w-[500px] h-[500px] bg-primaryBlue -top-40 -left-40"></div>
+        <div class="bg-blob w-[400px] h-[400px] bg-cyanAccent bottom-0 right-0" style="animation-delay: -6s;"></div>
+        <div class="container relative z-10 mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div class="space-y-6 reveal">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-green-500/30 bg-green-500/10 text-green-400 text-xs font-medium">
+                    <span class="w-2 h-2 rounded-full bg-green-400"></span> Available For Freelance
+                </div>
+                <h1 class="text-5xl lg:text-7xl font-bold leading-tight">
+                    Hello, I'm <br> Louis Peter <br> <span class="text-gradient">Bangura</span>
+                </h1>
+                <h2 class="text-2xl text-gray-300 font-medium" id="hero-tagline">Web Developer & Graphic Designer</h2>
+                <p class="text-textMuted max-w-lg leading-relaxed" id="hero-bio">
+                    I build modern, responsive and performance-driven websites that help businesses grow. I also create stunning graphics that bring ideas to life.
+                </p>
+                <div class="flex gap-4 text-sm font-medium">
+                    <span class="text-cyanAccent">• Web Developer</span>
+                    <span class="text-purple-500">• Graphic Designer</span>
+                    <span class="text-yellow-500">• UI/UX Designer</span>
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <a href="#contact" class="magnetic btn-hover px-8 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-400 text-white font-medium flex items-center gap-2">
+                        <i class="fa-regular fa-user"></i> Hire Me
+                    </a>
+                    <!-- Auto-updated from the admin CV/Resume tab; falls back to cv.pdf if none uploaded yet -->
+                    <a href="cv.pdf" download id="cv-download-link-hero" class="magnetic btn-hover px-8 py-3 rounded-lg border border-gray-600 hover:border-gray-400 flex items-center gap-2">
+                        <i class="fa-solid fa-download"></i> Download CV
+                    </a>
+                    <a href="https://github.com/petercybe" target="_blank" rel="noopener" class="magnetic btn-hover w-12 h-12 rounded-lg border border-gray-600 flex items-center justify-center hover:bg-gray-800">
+                        <i class="fa-brands fa-github text-xl"></i>
+                    </a>
+                </div>
+                <div class="grid grid-cols-3 gap-4 pt-8 border-t border-cardBorder mt-8 text-sm">
+                    <div>
+                        <div class="flex items-center gap-2 text-white mb-1"><i class="fa-brands fa-github"></i> GitHub</div>
+                        <div class="text-textMuted">@petercybe</div>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 text-white mb-1"><i class="fa-regular fa-envelope"></i> Email</div>
+                        <div class="text-textMuted text-xs">lpeterbangura@gmail.com</div>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 text-white mb-1"><i class="fa-solid fa-location-dot"></i> Location</div>
+                        <div class="text-textMuted" id="hero-location">Sierra Leone</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="float-card relative flex justify-center items-end h-[600px] border border-cardBorder rounded-2xl bg-cardBg overflow-hidden reveal">
+                <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(#3b82f6 1px, transparent 1px); background-size: 30px 30px;"></div>
+                
+                <!-- Glow Ring -->
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] rounded-full border-[4px] border-blue-600 glow-circle"></div>
+                
+                <!-- PROFILE PICTURE -->
+                <img src="images/profile.png" alt="Louis Peter Bangura" class="z-10 relative w-[85%] h-auto max-h-[95%] object-cover object-top rounded-t-3xl image-fade drop-shadow-2xl">
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="relative overflow-hidden py-20 border-b border-cardBorder bg-cardBg/30">
+        <div class="container relative z-10 mx-auto px-6">
+            <div class="text-center mb-12 reveal">
+                <span class="text-cyanAccent text-sm font-semibold uppercase tracking-wider">About Me</span>
+                <h2 class="text-3xl font-bold mt-2">About Me</h2>
+                <p class="text-textMuted mt-2">I'm passionate about creating digital solutions that are beautiful, functional and impactful.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- ID Card (hover to flip) -->
+                <div class="lg:col-span-4 reveal">
+                    <div class="flip-card">
+                        <div class="flip-card-inner">
+
+                            <!-- FRONT: photo + name -->
+                            <div class="flip-card-front bg-cardBg border border-cardBorder p-6 text-center">
+                                <img src="images/about-front.jpg" alt="Louis Peter Bangura" class="w-full h-56 object-cover object-top rounded-xl mb-3 border border-cardBorder shadow-lg">
+                                <h3 class="font-serif italic text-2xl mb-1">Louis Peter Bangura</h3>
+                                <p class="text-cyanAccent text-sm">Web Developer & <br> Graphic Designer</p>
+                            </div>
+
+                            <!-- BACK: photo + name -->
+                            <div class="flip-card-back bg-cardBg border border-cardBorder p-6 text-center">
+                                <img src="images/about-back.jpg" alt="Louis Peter Bangura" class="w-full h-56 object-cover object-top rounded-xl mb-3 border border-cardBorder shadow-lg">
+                                <h3 class="font-serif italic text-2xl mb-1">Louis Peter Bangura</h3>
+                                <p class="text-cyanAccent text-sm">Web Developer & <br> Available for freelance</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Timeline & Stats -->
+                <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Timeline -->
+                    <div class="space-y-6 relative border-l border-gray-700 ml-3 pl-6 reveal" id="about-timeline">
+                        <div class="relative">
+                            <span class="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-primaryBlue"></span>
+                            <span class="text-primaryBlue text-sm font-medium">2021 - Present</span>
+                            <h4 class="text-lg font-semibold mt-1">Freelance Web Developer</h4>
+                            <p class="text-textMuted text-sm mt-1">Building modern websites and web applications for clients worldwide.</p>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-primaryBlue"></span>
+                            <span class="text-primaryBlue text-sm font-medium">2020 - 2021</span>
+                            <h4 class="text-lg font-semibold mt-1">Graphic Designer</h4>
+                            <p class="text-textMuted text-sm mt-1">Designed logos, banners, posters and brand identities for various brands.</p>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-primaryBlue"></span>
+                            <span class="text-primaryBlue text-sm font-medium">2019 - Present</span>
+                            <h4 class="text-lg font-semibold mt-1">Self Learning & Growing</h4>
+                            <p class="text-textMuted text-sm mt-1">Continuously learning new technologies and enhancing my skills.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-2 gap-4 reveal">
+                        <div class="float-card" style="animation-delay: 0s;">
+                            <div class="bg-cardBg border border-cardBorder rounded-xl p-6 text-center card-hover transition">
+                                <i class="fa-solid fa-code text-2xl text-purple-500 mb-2"></i>
+                                <h3 class="text-3xl font-bold" id="stat-projects-completed">—</h3>
+                                <p class="text-textMuted text-sm mt-1">Projects Completed</p>
+                            </div>
+                        </div>
+                        <div class="float-card" style="animation-delay: -1.2s;">
+                            <div class="bg-cardBg border border-cardBorder rounded-xl p-6 text-center card-hover transition">
+                                <i class="fa-regular fa-face-smile text-2xl text-cyanAccent mb-2"></i>
+                                <h3 class="text-3xl font-bold" id="stat-happy-clients">10+</h3>
+                                <p class="text-textMuted text-sm mt-1">Happy Clients</p>
+                            </div>
+                        </div>
+                        <div class="float-card" style="animation-delay: -2.4s;">
+                            <div class="bg-cardBg border border-cardBorder rounded-xl p-6 text-center card-hover transition">
+                                <i class="fa-solid fa-certificate text-2xl text-blue-500 mb-2"></i>
+                                <h3 class="text-3xl font-bold" id="stat-certificates">5+</h3>
+                                <p class="text-textMuted text-sm mt-1">Certificates Earned</p>
+                            </div>
+                        </div>
+                        <div class="float-card" style="animation-delay: -3.6s;">
+                            <div class="bg-cardBg border border-cardBorder rounded-xl p-6 text-center card-hover transition">
+                                <i class="fa-solid fa-stopwatch text-2xl text-cyanAccent mb-2"></i>
+                                <h3 class="text-3xl font-bold" id="stat-years-learning">4+</h3>
+                                <p class="text-textMuted text-sm mt-1">Years of Learning</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Contact Strip -->
+            <div class="mt-8 bg-cardBg border border-cardBorder rounded-xl p-4 flex flex-wrap justify-center md:justify-between items-center gap-4 text-sm reveal">
+                <div class="flex items-center gap-2"><i class="fa-solid fa-user text-gray-400"></i> <span class="text-gray-400">Name:</span> Louis Peter Bangura</div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-envelope text-gray-400"></i> <span class="text-gray-400">Email:</span> <a href="mailto:lpeterbangura@gmail.com" class="text-cyanAccent">lpeterbangura@gmail.com</a></div>
+                <div class="flex items-center gap-2"><i class="fa-solid fa-location-dot text-gray-400"></i> <span class="text-gray-400">Location:</span> <span id="about-location">Sierra Leone</span></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Skills Section -->
+    <section id="skills" class="py-20 border-b border-cardBorder">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12 reveal">
+                <span class="text-cyanAccent text-sm font-semibold uppercase tracking-wider">My Skills</span>
+                <h2 class="text-3xl font-bold mt-2">My Skills</h2>
+                <p class="text-textMuted mt-2">Technologies and tools I use to bring ideas to life.</p>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 reveal" id="skills-grid">
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 text-center flex flex-col items-center hover-glow transition">
+                    <i class="fa-brands fa-html5 text-4xl text-orange-500 mb-3"></i>
+                    <h4 class="font-semibold text-sm mb-3">HTML5</h4>
+                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden relative">
+                        <div class="absolute top-0 left-0 h-full bg-orange-500 w-[90%]"></div>
+                    </div>
+                    <span class="text-[10px] text-gray-400 self-end mt-1">90%</span>
+                </div>
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 text-center flex flex-col items-center hover-glow transition">
+                    <i class="fa-brands fa-css3-alt text-4xl text-blue-500 mb-3"></i>
+                    <h4 class="font-semibold text-sm mb-3">CSS3</h4>
+                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden relative">
+                        <div class="absolute top-0 left-0 h-full bg-blue-500 w-[90%]"></div>
+                    </div>
+                    <span class="text-[10px] text-gray-400 self-end mt-1">90%</span>
+                </div>
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 text-center flex flex-col items-center hover-glow transition">
+                    <i class="fa-brands fa-js text-4xl text-yellow-400 mb-3"></i>
+                    <h4 class="font-semibold text-sm mb-3">JavaScript</h4>
+                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden relative">
+                        <div class="absolute top-0 left-0 h-full bg-yellow-400 w-[85%]"></div>
+                    </div>
+                    <span class="text-[10px] text-gray-400 self-end mt-1">85%</span>
+                </div>
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 text-center flex flex-col items-center hover-glow transition">
+                    <div class="w-10 h-10 rounded flex items-center justify-center font-bold text-lg mb-3 text-white" style="background: linear-gradient(135deg, #00C4CC, #7D2AE8);">Ca</div>
+                    <h4 class="font-semibold text-sm mb-3">Canva</h4>
+                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden relative">
+                        <div class="absolute top-0 left-0 h-full w-[85%]" style="background: linear-gradient(90deg, #00C4CC, #7D2AE8);"></div>
+                    </div>
+                    <span class="text-[10px] text-gray-400 self-end mt-1">85%</span>
+                </div>
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 text-center flex flex-col items-center hover-glow transition">
+                    <i class="fa-brands fa-node-js text-4xl text-green-500 mb-3"></i>
+                    <h4 class="font-semibold text-sm mb-3">Node.js</h4>
+                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden relative">
+                        <div class="absolute top-0 left-0 h-full bg-green-500 w-[75%]"></div>
+                    </div>
+                    <span class="text-[10px] text-gray-400 self-end mt-1">75%</span>
+                </div>
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 text-center flex flex-col items-center hover-glow transition">
+                    <i class="fa-solid fa-leaf text-4xl text-green-600 mb-3"></i>
+                    <h4 class="font-semibold text-sm mb-3">MongoDB</h4>
+                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden relative">
+                        <div class="absolute top-0 left-0 h-full bg-green-600 w-[70%]"></div>
+                    </div>
+                    <span class="text-[10px] text-gray-400 self-end mt-1">70%</span>
+                </div>
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-5 text-center flex flex-col items-center hover-glow transition">
+                    <div class="w-10 h-10 bg-blue-900 text-blue-300 rounded flex items-center justify-center font-bold text-xl mb-3 border border-blue-400">Ps</div>
+                    <h4 class="font-semibold text-sm mb-3">Photoshop</h4>
+                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden relative">
+                        <div class="absolute top-0 left-0 h-full bg-blue-500 w-[85%]"></div>
+                    </div>
+                    <span class="text-[10px] text-gray-400 self-end mt-1">85%</span>
+                </div>
+            </div>
+
+            <!-- Pill Tags -->
+            <div class="flex flex-wrap justify-center gap-3 mt-8 reveal">
+                <span class="float-card px-4 py-2 rounded-full border border-cardBorder bg-cardBg text-sm flex items-center gap-2" style="animation-delay: 0s;"><i class="fa-solid fa-wind text-cyan-400"></i> Tailwind CSS</span>
+                <span class="float-card px-4 py-2 rounded-full border border-cardBorder bg-cardBg text-sm flex items-center gap-2" style="animation-delay: -1s;"><i class="fa-brands fa-github text-white"></i> Git & GitHub</span>
+                <span class="float-card px-4 py-2 rounded-full border border-cardBorder bg-cardBg text-sm flex items-center gap-2" style="animation-delay: -2s;"><i class="fa-brands fa-figma text-purple-400"></i> Figma</span>
+                <span class="float-card px-4 py-2 rounded-full border border-cardBorder bg-cardBg text-sm flex items-center gap-2" style="animation-delay: -3s;"><i class="fa-brands fa-node text-gray-300"></i> Express.js</span>
+                <span class="float-card px-4 py-2 rounded-full border border-cardBorder bg-cardBg text-sm flex items-center gap-2" style="animation-delay: -4s;"><i class="fa-solid fa-code text-blue-500"></i> VS Code</span>
+                <span class="float-card px-4 py-2 rounded-full border border-cardBorder bg-cardBg text-sm flex items-center gap-2" style="animation-delay: -0.5s;"><i class="fa-solid fa-rocket text-orange-500"></i> Postman</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section (managed from the admin dashboard) -->
+    <section id="services" class="py-20 border-b border-cardBorder bg-cardBg/30">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12 reveal">
+                <span class="text-cyanAccent text-sm font-semibold uppercase tracking-wider">What I Do</span>
+                <h2 class="text-3xl font-bold mt-2">Services</h2>
+                <p class="text-textMuted mt-2">Ways I can help bring your project to life.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 reveal" id="services-grid">
+                <div class="col-span-full text-center text-textMuted py-6">Loading services…</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Projects Section -->
+    <section id="projects" class="py-20 border-b border-cardBorder bg-cardBg/30">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-8 reveal">
+                <span class="text-cyanAccent text-sm font-semibold uppercase tracking-wider">Recent Works</span>
+                <h2 class="text-3xl font-bold mt-2">My Projects</h2>
+            </div>
+            
+            <div class="flex justify-center gap-4 mb-10 overflow-x-auto pb-2 reveal" id="project-filters">
+                <button data-filter="All" class="filter-btn btn-hover active px-5 py-2 rounded-lg border border-cardBorder text-sm font-medium">All</button>
+                <button data-filter="Web Development" class="filter-btn btn-hover px-5 py-2 rounded-lg border border-cardBorder hover:bg-cardBg text-gray-400 text-sm font-medium">Web Development</button>
+                <button data-filter="Graphic Design" class="filter-btn btn-hover px-5 py-2 rounded-lg border border-cardBorder hover:bg-cardBg text-gray-400 text-sm font-medium">Graphic Design</button>
+                <button data-filter="UI/UX Design" class="filter-btn btn-hover px-5 py-2 rounded-lg border border-cardBorder hover:bg-cardBg text-gray-400 text-sm font-medium">UI/UX Design</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 reveal" id="projects-grid">
+                <!-- Populated live from the backend via js at the bottom of the page -->
+                <div class="col-span-full text-center text-textMuted py-10" id="projects-loading">
+                    <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading projects…
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="py-20 border-b border-cardBorder">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12 reveal">
+                <span class="text-cyanAccent text-sm font-semibold uppercase tracking-wider">Get In Touch</span>
+                <h2 class="text-3xl font-bold mt-2">Contact Me</h2>
+                <p class="text-textMuted mt-2">Have a project in mind? Let's work together!</p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Info Links -->
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-6 space-y-6 reveal">
+                    <a href="mailto:lpeterbangura@gmail.com" class="flex items-center gap-4 hover:opacity-80 transition">
+                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-white"><i class="fa-regular fa-envelope"></i></div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-white">Email</h4>
+                            <p class="text-xs text-textMuted">lpeterbangura@gmail.com</p>
+                        </div>
+                    </a>
+                    <a href="https://wa.me/23299803937" target="_blank" rel="noopener" class="flex items-center gap-4 hover:opacity-80 transition">
+                        <div class="w-10 h-10 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center"><i class="fa-brands fa-whatsapp text-lg"></i></div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-white">WhatsApp</h4>
+                            <p class="text-xs text-textMuted">Let's chat on WhatsApp</p>
+                        </div>
+                    </a>
+                    <a href="https://github.com/petercybe" target="_blank" rel="noopener" class="flex items-center gap-4 hover:opacity-80 transition">
+                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-white"><i class="fa-brands fa-github"></i></div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-white">GitHub</h4>
+                            <p class="text-xs text-textMuted">@petercybe</p>
+                        </div>
+                    </a>
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-white"><i class="fa-solid fa-location-dot"></i></div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-white">Location</h4>
+                            <p class="text-xs text-textMuted">Sierra Leone</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-3 pt-4 border-t border-cardBorder">
+                        <a href="https://github.com/petercybe" target="_blank" rel="noopener" class="magnetic btn-hover w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700"><i class="fa-brands fa-github"></i></a>
+                        <!-- No LinkedIn URL on file yet — swap this href for the real profile -->
+                        <a href="#" class="magnetic btn-hover w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700"><i class="fa-brands fa-linkedin-in"></i></a>
+                        <a href="https://wa.me/23299803937" target="_blank" rel="noopener" class="magnetic btn-hover w-10 h-10 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center hover:bg-green-500/30"><i class="fa-brands fa-whatsapp"></i></a>
+                        <a href="mailto:lpeterbangura@gmail.com" class="magnetic btn-hover w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700"><i class="fa-regular fa-envelope"></i></a>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-6 lg:col-span-1 reveal">
+                    <form class="space-y-4" id="contact-form">
+                        <input type="text" id="contact-name" placeholder="Your Name" required class="w-full bg-transparent border border-cardBorder rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primaryBlue transition">
+                        <input type="email" id="contact-email" placeholder="Your Email" required class="w-full bg-transparent border border-cardBorder rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primaryBlue transition">
+                        <input type="text" id="contact-subject" placeholder="Subject" class="w-full bg-transparent border border-cardBorder rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primaryBlue transition">
+                        <textarea id="contact-message" placeholder="Your Message" rows="4" required class="w-full bg-transparent border border-cardBorder rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primaryBlue transition resize-none"></textarea>
+                        <button type="submit" id="contact-submit-btn" class="magnetic btn-hover w-full py-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-400 text-white font-medium flex items-center justify-center gap-2">
+                            <i class="fa-regular fa-paper-plane"></i> <span>Send Message</span>
+                        </button>
+                        <p id="contact-form-msg" class="text-xs text-center" style="display:none;"></p>
+                    </form>
+                </div>
+
+                <!-- Real interactive map, centered on Freetown, dark tiles, no tilt -->
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-3 flex flex-col items-center justify-center text-center overflow-hidden reveal">
+                    <div class="location-map-card w-full">
+                        <div id="location-map"></div>
+                    </div>
+                    <p class="text-sm font-semibold mt-4">Freetown, Sierra Leone</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="relative bg-cardBg/50 border-t border-cardBorder pt-16 pb-8">
+        <div class="container mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10 mb-10">
+                <div>
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-full border border-gray-600 flex items-center justify-center font-serif italic text-xl">lp</div>
+                        <span class="text-lg font-semibold">Louis Peter <span class="text-cyanAccent">Bangura</span></span>
+                    </div>
+                    <p class="text-textMuted text-sm leading-relaxed max-w-xs">
+                        Web Developer & Graphic Designer based in Freetown, Sierra Leone — building clean, modern sites and visuals that get results.
+                    </p>
+                </div>
+
+                <div>
+                    <h4 class="text-sm font-semibold uppercase tracking-wider text-gray-300 mb-4">Quick Links</h4>
+                    <ul class="space-y-2 text-sm text-textMuted">
+                        <li><a href="#home" class="hover:text-cyanAccent transition">Home</a></li>
+                        <li><a href="#about" class="hover:text-cyanAccent transition">About</a></li>
+                        <li><a href="#skills" class="hover:text-cyanAccent transition">Skills</a></li>
+                        <li><a href="#projects" class="hover:text-cyanAccent transition">Projects</a></li>
+                        <li><a href="#contact" class="hover:text-cyanAccent transition">Contact</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="text-sm font-semibold uppercase tracking-wider text-gray-300 mb-4">Let's Connect</h4>
+                    <div class="flex gap-3">
+                        <a href="https://github.com/petercybe" target="_blank" rel="noopener" class="magnetic btn-hover w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700"><i class="fa-brands fa-github"></i></a>
+                        <a href="#" class="magnetic btn-hover w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700"><i class="fa-brands fa-linkedin-in"></i></a>
+                        <a href="https://wa.me/23299803937" target="_blank" rel="noopener" class="magnetic btn-hover w-10 h-10 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center hover:bg-green-500/30"><i class="fa-brands fa-whatsapp"></i></a>
+                        <a href="mailto:lpeterbangura@gmail.com" class="magnetic btn-hover w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700"><i class="fa-regular fa-envelope"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-cardBorder pt-6 flex flex-col md:flex-row justify-between items-center gap-3 text-xs text-textMuted">
+                <p>&copy; <span id="footer-year"></span> Louis Peter Bangura. All rights reserved.</p>
+                <p>Built with care in Freetown, Sierra Leone 🇸🇱</p>
+            </div>
+        </div>
+    </footer>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Project group gallery: opened when someone clicks "View Project" on a
+         category/sub-category card, shows every project inside that group -->
+    <div class="gallery-overlay" id="gallery-overlay">
+        <div class="gallery-panel">
+            <div class="flex items-start justify-between mb-5 gap-4">
+                <div>
+                    <span class="text-cyanAccent text-xs font-semibold uppercase tracking-wider" id="gallery-parent-label"></span>
+                    <h3 class="text-2xl font-bold mt-1" id="gallery-title"></h3>
+                    <p class="text-textMuted text-xs mt-1" id="gallery-count"></p>
+                </div>
+                <button class="gallery-close" id="gallery-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="gallery-grid"></div>
+        </div>
+    </div>
+
+    <!-- Full-size image viewer for a single project's cover image -->
+    <div class="lightbox-overlay" id="lightbox-overlay">
+        <button class="lightbox-nav lightbox-close" id="lightbox-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        <button class="lightbox-nav" id="lightbox-prev" style="left: 1.5rem;" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+        <img id="lightbox-img" src="" alt="">
+        <button class="lightbox-nav" id="lightbox-next" style="right: 1.5rem;" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
+        <p class="text-textMuted text-sm mt-4 text-center max-w-lg" id="lightbox-caption"></p>
+    </div>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script>
+        /* ============================================================
+           Wired to the real backend (see API_BASE_URL at the top of <head>)
+           - Projects section: GET /api/projects, filtered client-side by category
+           - Contact form: POST /api/contact
+           - The old in-page #admin section has been removed. Real admin
+             access is now only through admin-login.html -> admin.html,
+             which requires your username + password.
+           ============================================================ */
+
+        /* ---------------- Page load / exit transitions ---------------- */
+        window.addEventListener('load', () => {
+            document.body.classList.add('page-ready');
+        });
+
+        document.getElementById('admin-nav-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            const href = e.currentTarget.href;
+            document.body.classList.add('page-exit');
+            setTimeout(() => { window.location.href = href; }, 320);
+        });
+
+        /* ---------------- Footer year ---------------- */
+        document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+        /* ---------------- Cursor glow (mouse-driven, skipped on touch devices) ---------------- */
+        if (window.matchMedia('(pointer: fine)').matches) {
+            const glow = document.getElementById('cursor-glow');
+            window.addEventListener('mousemove', (e) => {
+                glow.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
+                glow.classList.add('active');
+            });
+            document.addEventListener('mouseleave', () => glow.classList.remove('active'));
+        }
+
+        /* ---------------- Magnetic buttons ---------------- */
+        document.querySelectorAll('.magnetic').forEach(el => {
+            el.addEventListener('mousemove', (e) => {
+                const rect = el.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                el.style.transform = `translate(${x * 0.3}px, ${y * 0.3}px)`;
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.transform = 'translate(0, 0)';
+            });
+        });
+
+        /* ---------------- Location map (Leaflet, dark tiles, flat) ---------------- */
+        (function initLocationMap() {
+            const el = document.getElementById('location-map');
+            if (!el || typeof L === 'undefined') return;
+
+            const freetown = [8.4657, -13.2317];
+            const map = L.map(el, {
+                center: freetown,
+                zoom: 13,
+                scrollWheelZoom: false, // don't hijack page scroll
+                attributionControl: true
+            });
+
+            // CARTO's dark basemap — an actual dark-themed tile set (not a
+            // filtered light map), built on real OpenStreetMap data.
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            const pinIcon = L.divIcon({
+                className: '',
+                html: '<i class="fa-solid fa-location-dot map-pin"></i>',
+                iconSize: [24, 24],
+                iconAnchor: [12, 24],
+                popupAnchor: [0, -22]
+            });
+
+            L.marker(freetown, { icon: pinIcon })
+                .addTo(map)
+                .bindPopup('Freetown, Sierra Leone');
+
+            // re-enable scroll zoom once the user has clicked into the map,
+            // so it doesn't fight the page scroll while browsing
+            map.on('click', () => map.scrollWheelZoom.enable());
+        })();
+
+        /* ---------------- Scroll reveal ---------------- */
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('in-view');
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+
+        document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show' + (isError ? ' error' : '');
+            setTimeout(() => { toast.className = 'toast'; }, 4000);
+        }
+
+        function escapeHtml(str = '') {
+            return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        /* ---------------- Analytics ping (fire-and-forget, once per page load) ---------------- */
+        fetch(`${API_BASE_URL}/analytics/view`, { method: 'POST' }).catch(() => {});
+
+        /* ---------------- Site content: bio, tagline, stats, timeline, CV, location ----------------
+           Falls back to the hardcoded HTML already in the page if the backend is
+           unreachable or nothing has been saved yet, so the page never looks broken. */
+        async function loadSiteContent() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/site-content`);
+                if (!res.ok) throw new Error('Failed to load site content');
+                const c = await res.json();
+
+                if (c.tagline) document.getElementById('hero-tagline').textContent = c.tagline;
+                if (c.bio) document.getElementById('hero-bio').textContent = c.bio;
+                if (c.location) {
+                    document.getElementById('hero-location').textContent = c.location;
+                    document.getElementById('about-location').textContent = c.location;
+                }
+                if (c.resumeUrl) {
+                    document.getElementById('cv-download-link-hero').setAttribute('href', c.resumeUrl);
+                    document.getElementById('cv-download-link-hero').removeAttribute('download');
+                    document.getElementById('cv-download-link-hero').setAttribute('target', '_blank');
+                }
+                if (c.stats) {
+                    if (c.stats.happyClients !== undefined) document.getElementById('stat-happy-clients').textContent = c.stats.happyClients + '+';
+                    if (c.stats.certificates !== undefined) document.getElementById('stat-certificates').textContent = c.stats.certificates + '+';
+                    if (c.stats.yearsLearning !== undefined) document.getElementById('stat-years-learning').textContent = c.stats.yearsLearning + '+';
+                }
+                if (Array.isArray(c.timeline) && c.timeline.length) {
+                    document.getElementById('about-timeline').innerHTML = c.timeline.map(t => `
+                        <div class="relative">
+                            <span class="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-primaryBlue"></span>
+                            <span class="text-primaryBlue text-sm font-medium">${escapeHtml(t.period)}</span>
+                            <h4 class="text-lg font-semibold mt-1">${escapeHtml(t.title)}</h4>
+                            <p class="text-textMuted text-sm mt-1">${escapeHtml(t.description)}</p>
+                        </div>
+                    `).join('');
+                }
+            } catch (err) {
+                // Keep the fallback content already in the HTML — nothing to do.
+            }
+        }
+        loadSiteContent();
+
+        /* ---------------- Skills ---------------- */
+        async function loadSkills() {
+            const grid = document.getElementById('skills-grid');
+            try {
+                const res = await fetch(`${API_BASE_URL}/skills`);
+                if (!res.ok) throw new Error('Failed to load skills');
+                const skills = await res.json();
+
+                if (!skills.length) return; // keep the fallback grid already in the HTML
+
+                grid.innerHTML = skills.map(s => `
+                    <div class="bg-cardBg border border-cardBorder rounded-xl p-5 text-center flex flex-col items-center hover-glow transition">
+                        ${s.icon
+                            ? `<i class="${escapeHtml(s.icon)} text-4xl mb-3" style="color:${escapeHtml(s.color || '#00e5ff')};"></i>`
+                            : `<div class="w-10 h-10 rounded flex items-center justify-center font-bold text-sm mb-3 text-white" style="background:${escapeHtml(s.color || '#00e5ff')};">${escapeHtml(s.name.slice(0, 2))}</div>`
+                        }
+                        <h4 class="font-semibold text-sm mb-3">${escapeHtml(s.name)}</h4>
+                        <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden relative">
+                            <div class="absolute top-0 left-0 h-full" style="width:${s.percent}%; background:${escapeHtml(s.color || '#00e5ff')};"></div>
+                        </div>
+                        <span class="text-[10px] text-gray-400 self-end mt-1">${s.percent}%</span>
+                    </div>
+                `).join('');
+            } catch (err) {
+                // Keep the fallback grid already in the HTML — nothing to do.
+            }
+        }
+        loadSkills();
+
+        /* ---------------- Services ---------------- */
+        async function loadServices() {
+            const grid = document.getElementById('services-grid');
+            try {
+                const res = await fetch(`${API_BASE_URL}/services`);
+                if (!res.ok) throw new Error('Failed to load services');
+                const services = await res.json();
+
+                if (!services.length) {
+                    document.getElementById('services').style.display = 'none';
+                    return;
+                }
+
+                grid.innerHTML = services.map(s => `
+                    <div class="bg-cardBg border border-cardBorder rounded-xl p-6 card-hover transition">
+                        <div class="w-12 h-12 rounded-lg bg-primaryBlue/10 text-primaryBlue flex items-center justify-center text-xl mb-4">
+                            <i class="${escapeHtml(s.icon || 'fa-solid fa-briefcase')}"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2">${escapeHtml(s.title)}</h3>
+                        <p class="text-textMuted text-sm">${escapeHtml(s.description)}</p>
+                    </div>
+                `).join('');
+            } catch (err) {
+                document.getElementById('services').style.display = 'none';
+            }
+        }
+        loadServices();
+
+        /* ---------------- Projects ---------------- */
+        let allProjects = [];
+        let projectGroups = [];
+        let activeFilter = 'All';
+        let activeGalleryItems = [];
+        let activeLightboxIndex = 0;
+
+        async function loadProjects() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/projects`);
+                if (!res.ok) throw new Error('Failed to load projects');
+                allProjects = await res.json();
+                document.getElementById('stat-projects-completed').textContent = allProjects.length;
+                buildProjectGroups();
+                renderProjects();
+            } catch (err) {
+                document.getElementById('projects-grid').innerHTML =
+                    `<div class="col-span-full text-center text-textMuted py-10">
+                        <i class="fa-solid fa-triangle-exclamation mr-2"></i> Could not reach the backend at ${API_BASE_URL}. Make sure the server is running.
+                    </div>`;
+                document.getElementById('stat-projects-completed').textContent = '—';
+            }
+        }
+
+        // Groups projects by sub-category when one is set (e.g. every "Logo
+        // Design" project becomes one card), and falls back to grouping by
+        // category alone for projects with no sub-category (e.g. Web
+        // Development projects keep working exactly as before).
+        function buildProjectGroups() {
+            const map = new Map();
+            allProjects.forEach(p => {
+                const category = p.category || 'Web Development';
+                const subcategory = (p.subcategory || '').trim();
+                const key = subcategory ? `${category}::${subcategory}` : `${category}::`;
+                if (!map.has(key)) {
+                    map.set(key, { category, subcategory, label: subcategory || category, items: [] });
+                }
+                map.get(key).items.push(p);
+            });
+            projectGroups = Array.from(map.values()).map(g => ({
+                ...g,
+                cover: (g.items.find(i => i.featured) || g.items[0]).image
+            }));
+        }
+
+        function renderProjects() {
+            const grid = document.getElementById('projects-grid');
+            const filtered = activeFilter === 'All'
+                ? projectGroups
+                : projectGroups.filter(g => g.category === activeFilter);
+
+            if (!filtered.length) {
+                grid.innerHTML = `<div class="col-span-full text-center text-textMuted py-10">No projects in this category yet.</div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(g => {
+                const groupIndex = projectGroups.indexOf(g);
+                return `
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-4 card-hover flex flex-col transition">
+                    <div class="relative w-full h-40 bg-gray-800 rounded-lg mb-4 overflow-hidden">
+                        <img src="${g.cover}" alt="${escapeHtml(g.label)}" class="w-full h-full object-cover">
+                        <span class="group-count-badge">${g.items.length} ${g.items.length === 1 ? 'project' : 'projects'}</span>
+                    </div>
+                    <h3 class="text-lg font-semibold">${escapeHtml(g.label)}</h3>
+                    <span class="text-cyanAccent text-xs font-medium mb-2">${escapeHtml(g.category)}</span>
+                    <p class="text-textMuted text-xs flex-grow mb-4">${escapeHtml(g.items[0].description)}</p>
+                    <button onclick="openGallery(${groupIndex})" class="px-4 py-1.5 border border-primaryBlue text-primaryBlue rounded-md text-xs hover:bg-primaryBlue hover:text-white transition self-start">View Project</button>
+                </div>
+            `;
+            }).join('');
+        }
+
+        document.getElementById('project-filters').addEventListener('click', (e) => {
+            const btn = e.target.closest('.filter-btn');
+            if (!btn) return;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeFilter = btn.dataset.filter;
+            renderProjects();
+        });
+
+        /* ---------------- Gallery modal: every project inside a clicked group ---------------- */
+        const galleryOverlay = document.getElementById('gallery-overlay');
+
+        function openGallery(groupIndex) {
+            const g = projectGroups[groupIndex];
+            if (!g) return;
+
+            document.getElementById('gallery-parent-label').textContent = g.subcategory ? g.category : '';
+            document.getElementById('gallery-title').textContent = g.label;
+            document.getElementById('gallery-count').textContent = `${g.items.length} ${g.items.length === 1 ? 'project' : 'projects'}`;
+
+            activeGalleryItems = g.items;
+
+            document.getElementById('gallery-grid').innerHTML = g.items.map((p, i) => `
+                <div class="bg-cardBg border border-cardBorder rounded-xl p-3 flex flex-col transition">
+                    <div class="w-full h-36 bg-gray-800 rounded-lg mb-3 overflow-hidden">
+                        <img src="${p.image}" alt="${escapeHtml(p.title)}" class="gallery-item-img w-full h-full object-cover" onclick="openLightbox(${i})">
+                    </div>
+                    <h4 class="text-sm font-semibold">${escapeHtml(p.title)}</h4>
+                    <p class="text-textMuted text-xs flex-grow my-2">${escapeHtml(p.description)}</p>
+                    ${(p.demo || p.github) ? `
+                    <div class="flex justify-between items-center mt-1">
+                        ${p.demo
+                            ? `<a href="${p.demo}" target="_blank" rel="noopener" class="px-3 py-1 border border-primaryBlue text-primaryBlue rounded-md text-xs hover:bg-primaryBlue hover:text-white transition">Live Demo</a>`
+                            : (p.github ? `<a href="${p.github}" target="_blank" rel="noopener" class="px-3 py-1 border border-primaryBlue text-primaryBlue rounded-md text-xs hover:bg-primaryBlue hover:text-white transition">GitHub</a>` : '<span></span>')
+                        }
+                        ${p.github && p.demo ? `<a href="${p.github}" target="_blank" rel="noopener" class="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition"><i class="fa-brands fa-github text-xs"></i></a>` : ''}
+                    </div>` : ''}
+                </div>
+            `).join('');
+
+            galleryOverlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeGallery() {
+            galleryOverlay.classList.remove('open');
+            if (!lightboxOverlay.classList.contains('open')) document.body.style.overflow = '';
+        }
+
+        document.getElementById('gallery-close').addEventListener('click', closeGallery);
+        galleryOverlay.addEventListener('click', (e) => { if (e.target === galleryOverlay) closeGallery(); });
+
+        /* ---------------- Lightbox: full-size view of one project's image ---------------- */
+        const lightboxOverlay = document.getElementById('lightbox-overlay');
+
+        function openLightbox(index) {
+            activeLightboxIndex = index;
+            renderLightbox();
+            lightboxOverlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function renderLightbox() {
+            const p = activeGalleryItems[activeLightboxIndex];
+            if (!p) return;
+            document.getElementById('lightbox-img').src = p.image;
+            document.getElementById('lightbox-img').alt = p.title;
+            document.getElementById('lightbox-caption').textContent = p.title;
+        }
+
+        function closeLightbox() {
+            lightboxOverlay.classList.remove('open');
+            if (!galleryOverlay.classList.contains('open')) document.body.style.overflow = '';
+        }
+
+        function lightboxStep(delta) {
+            if (!activeGalleryItems.length) return;
+            activeLightboxIndex = (activeLightboxIndex + delta + activeGalleryItems.length) % activeGalleryItems.length;
+            renderLightbox();
+        }
+
+        document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+        document.getElementById('lightbox-prev').addEventListener('click', () => lightboxStep(-1));
+        document.getElementById('lightbox-next').addEventListener('click', () => lightboxStep(1));
+        lightboxOverlay.addEventListener('click', (e) => { if (e.target === lightboxOverlay) closeLightbox(); });
+
+        document.addEventListener('keydown', (e) => {
+            if (lightboxOverlay.classList.contains('open')) {
+                if (e.key === 'Escape') closeLightbox();
+                if (e.key === 'ArrowLeft') lightboxStep(-1);
+                if (e.key === 'ArrowRight') lightboxStep(1);
+            } else if (galleryOverlay.classList.contains('open') && e.key === 'Escape') {
+                closeGallery();
+            }
+        });
+
+        loadProjects();
+
+        /* ---------------- Contact form ---------------- */
+        document.getElementById('contact-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('contact-name').value.trim();
+            const email = document.getElementById('contact-email').value.trim();
+            const subject = document.getElementById('contact-subject').value.trim();
+            const message = document.getElementById('contact-message').value.trim();
+            const btn = document.getElementById('contact-submit-btn');
+            const msgEl = document.getElementById('contact-form-msg');
+
+            const fullMessage = subject ? `Subject: ${subject}\n\n${message}` : message;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Sending...</span>';
+            msgEl.style.display = 'none';
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/contact`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, message: fullMessage })
+                });
+
+                if (!res.ok) throw new Error('Failed to send. Please try again.');
+
+                document.getElementById('contact-form').reset();
+                msgEl.textContent = "Message sent — I'll get back to you soon!";
+                msgEl.className = 'text-xs text-center text-green-400';
+                msgEl.style.display = 'block';
+                showToast('Message sent successfully');
+            } catch (err) {
+                msgEl.textContent = err.message;
+                msgEl.className = 'text-xs text-center text-red-400';
+                msgEl.style.display = 'block';
+                showToast('Could not send message', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-regular fa-paper-plane"></i> <span>Send Message</span>';
+            }
+        });
+    </script>
+
+</body>
+</html>
