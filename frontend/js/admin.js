@@ -236,7 +236,6 @@ function openEditModal(id) {
     document.getElementById('modal-title').textContent = 'Edit Project';
     document.getElementById('project-id').value = p._id;
     document.getElementById('project-title-input').value = p.title;
-    document.getElementById('project-description').value = p.description;
     document.getElementById('project-github').value = p.github || '';
     document.getElementById('project-demo').value = p.demo || '';
     document.getElementById('project-technologies').value = (p.technologies || []).join(', ');
